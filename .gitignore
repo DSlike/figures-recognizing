@@ -1,0 +1,9 @@
+/node_modules/
+**/sass_cashe/*.*
+/data/*.*
+/temp/*.*
+/uploads/*.*
+/recognizing/**/*.*
+/nn/1_*
+*.scss
+**/scss/
