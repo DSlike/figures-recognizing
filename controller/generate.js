@@ -5,7 +5,7 @@ const express = require('express'),
       getPixels = require("get-pixels");
 
 var trainingMaterials = [];
-const figures = ['square','triangle','round'];
+const figures = ['square','triangle','elipse','romb'];
 
 fs.readdir("./trainingMaterials/", (err, files) => {
     files.forEach(function(file, index){
@@ -28,13 +28,20 @@ module.exports = function(app, rootPath){
                 .grayscale()
                 .contrast(1);
 
-                for(var invert=0; invert<2; invert++){
+                for(var invert=0; invert<3; invert++){
                     var rotatedFigure = figure.clone();
                     for(var i=0; i<100; i+=20){
                         for(var j=0; j<100; j+=20){
                             var copy = rotatedFigure.clone();
                             if(invert==1)
                                 copy.invert();
+                            else if(invert==2){
+                                copy.convolute([
+                                    [ 0, 0, 0],
+                                    [ 0, 3, 0],
+                                    [ 0, 0, 0]
+                                ]);
+                            }
                             const fileName = (element+"_a-"+invert+"_c-"+(i/20+"_"+j/20)).toString();
                             copy.crop(j,i,20,20)
                                 .write(rootPath + "/temp/"+fileName+".png", function(){
@@ -70,12 +77,16 @@ module.exports = function(app, rootPath){
                             out[figure]=1;
                             saveData.push({input:pixelsData, output:out});
                             fs.exists(rootPath+"/data/train.json", (exists) => {
+                                console.log(exists);
                               if (exists) {
-                                    fs.readFile(rootPath+"/data/train.json", "utf-8", function(err, data){
-                                        data = JSON.parse(data);
-                                        console.log(data);
+                                    fs.readFileSync(rootPath+"/data/train.json", "utf-8", function(err, data){
+                                        if(data)
+                                            data = JSON.parse(data);
+                                        else
+                                            data = [];
                                         data.push(saveData);
-                                        fs.writeFile(rootPath+"/data/"+figure+".json", JSON.stringify(data), function(err){
+                                        fs.writeFileSync(rootPath+"/data/train.json", JSON.stringify(data), function(err){
+                                            console.log(data);
                                             if(!err)
                                                 console.log("done");
                                             else {
@@ -85,7 +96,8 @@ module.exports = function(app, rootPath){
                                     });
                                 }
                                 else{
-                                    fs.writeFile(rootPath+"/data/train.json", JSON.stringify(saveData), function(err){
+                                    fs.writeFileSync(rootPath+"/data/train.json", JSON.stringify(saveData), function(err){
+                                        console.log(saveData);
                                         if(!err)
                                             console.log("done");
                                         else {

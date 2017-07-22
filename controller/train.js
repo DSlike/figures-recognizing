@@ -9,11 +9,11 @@ module.exports = function(app, rootPath){
         fs.readFile(rootPath+"/data/train.json", 'utf-8', function(err, trainData){
             net.train(
                 JSON.parse(trainData), {
-                    errorThresh: 0.005,
+                    errorThresh: 0.01,
                     iterations: 500,
                     log: true,
                     logPeriod: 1,
-                    learningRate: 0.1
+                    learningRate: 0.03
                 }
             );
             var data = net.toJSON();

@@ -19,46 +19,48 @@ module.exports = function(app, rootPath) {
             form.multiples = true;
             form.uploadDir = path.join(rootPath, '/uploads/');
             form.on('file', function(field, file) {
-                fs.rename(file.path, path.join(form.uploadDir, name + ".png"));
-                Jimp.read(rootPath + "/uploads/"+name+".png", function(err, file) {
-                    file.contain(100,100)
-                        .color([
-                            { apply: 'hue', params: [ 0 ] },
-                            { apply: 'brighten', params: [ 0 ] }
-                        ])
-                        .dither565()
-                        // .convolute([
-                        //     [ 0, 0, 0],
-                        //     [ 0, 3, 0],
-                        //     [ 0, 0, 0]
-                        // ])
-                        .grayscale()
-                        .contrast(1)
-                        .write(rootPath + "/uploads/"+name+".png", function(){
-                            var rotatedFigure = file.clone();
-                            if(breakIt==0){
-                                for(var i=0; i<100; i+=20){
-                                    for(var j=0; j<100; j+=20){
-                                        var copy = rotatedFigure.clone();
-                                        copy
-                                            .crop(j,i,20,20)
-                                            .write(rootPath + "/recognizing/"+name+"/_"+i+"_"+j+".png", function(){
-                                                fs.readdir(rootPath+"/recognizing/"+name+"/", (err, files) => {
-                                                    if(files.length==25){
-                                                        recognize(name, function(data) {
-                                                            if(breakIt==0){
-                                                                res.send(data);
-                                                            }
-                                                            breakIt = 1;
-                                                            return;
-                                                        });
-                                                    }
+                fs.rename(file.path, path.join(form.uploadDir, name + ".png"), function(){
+                    Jimp.read(rootPath + "/uploads/"+name+".png", function(err, file) {
+                        file.background(0xFFFFFFFF)
+                            .contain(100,100)
+                            .color([
+                                { apply: 'hue', params: [ 0 ] },
+                                { apply: 'brighten', params: [ 0 ] }
+                            ])
+                            .dither565()
+                            .convolute([
+                                [ 0, 0, 0],
+                                [ 0, 3, 0],
+                                [ 0, 0, 0]
+                            ])
+                            .grayscale()
+                            .contrast(1)
+                            .write(rootPath + "/uploads/"+name+".png", function(){
+                                var rotatedFigure = file.clone();
+                                if(breakIt==0){
+                                    for(var i=0; i<100; i+=20){
+                                        for(var j=0; j<100; j+=20){
+                                            var copy = rotatedFigure.clone();
+                                            copy
+                                                .crop(j,i,20,20)
+                                                .write(rootPath + "/recognizing/"+name+"/_"+i+"_"+j+".png", function(){
+                                                    fs.readdir(rootPath+"/recognizing/"+name+"/", (err, files) => {
+                                                        if(files.length==25){
+                                                            recognize(name, function(data) {
+                                                                if(breakIt==0){
+                                                                    res.send(data);
+                                                                }
+                                                                breakIt = 1;
+                                                                return;
+                                                            });
+                                                        }
+                                                    });
                                                 });
-                                            });
+                                        }
                                     }
                                 }
-                            }
-                        });
+                            });
+                    });
                 });
             });
             form.on('error', function(err) {
@@ -72,7 +74,7 @@ module.exports = function(app, rootPath) {
 
         function recognize(name, callback) {
             var breakIt = 0;
-            var recognizedFigure = {round:0, triangle:0 ,square:0};
+            var recognizedFigure = {elipse:0, triangle:0 ,square:0, romb:0};
             fs.readFile(rootPath+"/NN/knowledge.json", 'utf-8', function(err, knowledge){
                 fs.readdir(rootPath+"/recognizing/"+name+"/", (err, files) => {
                     files.forEach(function(file, index){
@@ -91,21 +93,23 @@ module.exports = function(app, rootPath) {
                                 }
                                 else
                                     pixelsArray.push(0);
-                                if(i == pixels.data.length-8 && haveContent>0 && haveContent<70 && breakIt==0){
+                                if(i == pixels.data.length-8 && haveContent>0 && haveContent<50 && breakIt==0){
                                     const net = new brain.NeuralNetwork();
                                     net.fromJSON(JSON.parse(knowledge));
                                     var output = net.run(pixelsArray);
-                                    recognizedFigure.round += output.round;
+                                    recognizedFigure.elipse += output.elipse;
+                                    recognizedFigure.romb += output.romb;
                                     recognizedFigure.square += output.square;
                                     recognizedFigure.triangle += output.triangle;
-                                    if(index>80 || recognizedFigure.square>1.0 || recognizedFigure.round>1.0 || recognizedFigure.triangle>1.0){
-                                        if(recognizedFigure.round>recognizedFigure.square && recognizedFigure.round>recognizedFigure.triangle)
-                                            recognizedFigure = "round";
-                                        else if(recognizedFigure.square>recognizedFigure.round && recognizedFigure.square>recognizedFigure.triangle)
+                                    if(index>80 || recognizedFigure.square>1.0 || recognizedFigure.elipse>1.0 || recognizedFigure.triangle>1.0 || recognizedFigure.romb>1.0){
+                                        if(recognizedFigure.elipse>recognizedFigure.square && recognizedFigure.elipse>recognizedFigure.triangle && recognizedFigure.elipse>recognizedFigure.romb)
+                                            recognizedFigure = "elipse";
+                                        else if(recognizedFigure.square>recognizedFigure.elipse && recognizedFigure.square>recognizedFigure.triangle && recognizedFigure.square>recognizedFigure.romb)
                                             recognizedFigure = "square";
-                                        else if(recognizedFigure.triangle>recognizedFigure.square && recognizedFigure.triangle>recognizedFigure.round)
+                                        else if(recognizedFigure.triangle>recognizedFigure.square && recognizedFigure.triangle>recognizedFigure.elipse && recognizedFigure.triangle>>recognizedFigure.romb)
                                             recognizedFigure = "triangle";
-
+                                        else if(recognizedFigure.romb>recognizedFigure.square && recognizedFigure.romb>recognizedFigure.elipse && recognizedFigure.romb>>recognizedFigure.triangle)
+                                            recognizedFigure = "romb";
                                         try{
                                             callback(recognizedFigure);
                                             breakIt=1;
